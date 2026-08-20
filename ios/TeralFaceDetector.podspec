@@ -6,7 +6,7 @@ Pod::Spec.new do |s|
   s.author         = 'Teral'
   s.homepage       = 'https://teral.ai'
   s.platforms      = { :ios => '15.1' }
-  s.source         = { git: 'https://github.com/teral-ai/react-native-face-detector.git', tag: s.version.to_s }
+  s.source         = { git: 'https://github.com/Teral-Americas/react-native-face-detector.git', tag: s.version.to_s }
   s.static_framework = true
 
   s.dependency 'ExpoModulesCore'

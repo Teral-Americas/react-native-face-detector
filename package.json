@@ -24,12 +24,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/teral-ai/react-native-face-detector.git"
+    "url": "git+https://github.com/Teral-Americas/react-native-face-detector.git"
   },
   "bugs": {
-    "url": "https://github.com/teral-ai/react-native-face-detector/issues"
+    "url": "https://github.com/Teral-Americas/react-native-face-detector/issues"
   },
-  "homepage": "https://github.com/teral-ai/react-native-face-detector#readme",
+  "homepage": "https://github.com/Teral-Americas/react-native-face-detector#readme",
   "author": "Teral <dev@teral.ai>",
   "license": "MIT",
   "publishConfig": {
