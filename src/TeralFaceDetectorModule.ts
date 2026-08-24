@@ -3,6 +3,8 @@ import { NativeModule, requireOptionalNativeModule } from "expo-modules-core";
 import type {
   FaceDetectionOptions,
   FaceDetectionResult,
+  TattooDetectionOptions,
+  TattooDetectionResult,
 } from "./TeralFaceDetector.types";
 
 export interface TeralFaceDetectorModule extends NativeModule {
@@ -10,6 +12,12 @@ export interface TeralFaceDetectorModule extends NativeModule {
     uri: string,
     options?: FaceDetectionOptions,
   ): Promise<FaceDetectionResult>;
+  detectTattoos(
+    uri: string,
+    options?: TattooDetectionOptions,
+  ): Promise<TattooDetectionResult>;
+  /** `false` si este build no trae el modelo de tatuajes. */
+  isTattooDetectionAvailable(): boolean;
 }
 
 /**

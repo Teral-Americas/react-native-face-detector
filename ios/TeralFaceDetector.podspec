@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name           = 'TeralFaceDetector'
-  s.version        = '0.1.0'
-  s.summary        = 'Deteccion de caras on-device con Vision.'
+  s.version        = '0.2.0'
+  s.summary        = 'Deteccion de caras y tatuajes on-device.'
   s.description    = 'Devuelve las coordenadas normalizadas de las caras encontradas en una imagen. No modifica la imagen: el censurado se dibuja en JS con Skia.'
   s.author         = 'Teral'
   s.homepage       = 'https://teral.ai'
@@ -18,4 +18,9 @@ Pod::Spec.new do |s|
   }
 
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
+  # El modelo va ya compilado: CocoaPods copia los recursos tal cual, sin pasarlos
+  # por el compilador de Core ML, asi que un .mlpackage llegaria al dispositivo
+  # sin poder cargarse. Se regenera con:
+  #   xcrun coremlcompiler compile TattooDetector.mlpackage .
+  s.resources = "TattooDetector.mlmodelc"
 end

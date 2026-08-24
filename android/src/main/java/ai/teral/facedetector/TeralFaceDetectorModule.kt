@@ -13,6 +13,18 @@ import expo.modules.kotlin.modules.ModuleDefinition
 private const val MAX_FACES = 20
 
 /**
+ * Ancho de la banda ocular como multiplo de la distancia entre ojos.
+ *
+ * Un ojo mide en torno a 0.35 de esa distancia, asi que cubrir ambos pide 1.35 y
+ * el resto es margen. Con valores mayores la banda se come casi todo el ancho de
+ * la cara y deja de tener sentido frente a taparla entera.
+ */
+private const val EYE_BAND_WIDTH_FACTOR = 1.7f
+
+/** Alto de la banda ocular, en la misma unidad. Un ojo alto mide unos 0.2. */
+private const val EYE_BAND_HEIGHT_FACTOR = 0.5f
+
+/**
  * Detecta caras y devuelve sus bounding boxes en coordenadas normalizadas (0..1)
  * sobre la imagen ya orientada segun su EXIF.
  *
@@ -34,6 +46,68 @@ class TeralFaceDetectorModule : Module() {
 
     AsyncFunction("detectFaces") { uri: String, options: FaceDetectionOptions? ->
       detectFaces(uri, options ?: FaceDetectionOptions())
+    }
+
+    AsyncFunction("detectTattoos") { uri: String, options: TattooDetectionOptions? ->
+      detectTattoos(uri, options ?: TattooDetectionOptions())
+    }
+
+    Function("isTattooDetectionAvailable") {
+      runCatching { sharedTattooDetector() }.isSuccess
+    }
+
+    OnDestroy {
+      tattooDetector?.close()
+      tattooDetector = null
+    }
+  }
+
+  // MARK: - Tatuajes
+
+  /** Cargar el modelo cuesta; se reutiliza entre llamadas. */
+  private var tattooDetector: TattooDetector? = null
+
+  private fun sharedTattooDetector(): TattooDetector {
+    return tattooDetector ?: TattooDetector(context).also { tattooDetector = it }
+  }
+
+  private fun detectTattoos(uri: String, options: TattooDetectionOptions): Map<String, Any> {
+    val (imageWidth, imageHeight) = try {
+      ImageLoader.readSize(context, uri)
+    } catch (error: ImageLoadException) {
+      throw TattooDetectionFailedException(error.message ?: "No se pudo leer la imagen")
+    }
+
+    val bitmap = try {
+      ImageLoader.load(context, uri, options.maxDetectionSize)
+    } catch (error: ImageLoadException) {
+      throw TattooDetectionFailedException(error.message ?: "No se pudo cargar la imagen")
+    }
+
+    return try {
+      val detections = sharedTattooDetector().detect(
+        bitmap,
+        options.minConfidence.toFloat(),
+        options.iouThreshold.toFloat()
+      )
+
+      mapOf(
+        "imageWidth" to imageWidth,
+        "imageHeight" to imageHeight,
+        "tattoos" to detections.map { detection ->
+          val left = detection.x.coerceIn(0f, 1f)
+          val top = detection.y.coerceIn(0f, 1f)
+          mapOf(
+            "x" to left,
+            "y" to top,
+            "width" to ((detection.x + detection.width).coerceIn(0f, 1f) - left).coerceAtLeast(0f),
+            "height" to ((detection.y + detection.height).coerceIn(0f, 1f) - top).coerceAtLeast(0f),
+            "confidence" to detection.confidence
+          )
+        }
+      )
+    } finally {
+      bitmap.recycle()
     }
   }
 
@@ -60,7 +134,15 @@ class TeralFaceDetectorModule : Module() {
       val faces = (0 until count)
         .mapNotNull { found[it] }
         .filter { it.confidence() >= options.minConfidence }
-        .map { toNormalizedRect(it, detectable.width.toFloat(), detectable.height.toFloat()) }
+        .map {
+          toNormalizedRect(
+            it,
+            detectable.width.toFloat(),
+            detectable.height.toFloat(),
+            options.region,
+            options.eyeBandScale.toFloat()
+          )
+        }
 
       mapOf(
         "imageWidth" to imageWidth,
@@ -95,19 +177,43 @@ class TeralFaceDetectorModule : Module() {
   }
 
   /**
-   * La API nativa no da un rectangulo, sino el punto medio entre los ojos y la
-   * distancia entre ellos. Los factores (1.4 de ancho, 0.4 de desplazamiento
-   * hacia abajo) son los que usa Signal: encuadran la cara entera, no solo los ojos.
+   * La API nativa no da un rectangulo de cara, sino el punto medio entre los ojos
+   * y la distancia entre ellos. La banda ocular sale directamente de ahi; la cara
+   * entera hay que construirla, con los factores que usa Signal (1.4 de ancho y
+   * 0.4 de desplazamiento hacia abajo) para encuadrarla completa.
    */
-  private fun toNormalizedRect(face: FaceDetector.Face, width: Float, height: Float): Map<String, Any> {
+  private fun toNormalizedRect(
+    face: FaceDetector.Face,
+    width: Float,
+    height: Float,
+    region: FaceRegion,
+    eyeBandScale: Float
+  ): Map<String, Any> {
     val midPoint = PointF().also { face.getMidPoint(it) }
-    val halfWidth = face.eyesDistance() * 1.4f
-    val yOffset = face.eyesDistance() * 0.4f
+    val eyesDistance = face.eyesDistance()
 
-    val left = (midPoint.x - halfWidth) / width
-    val top = (midPoint.y - halfWidth + yOffset) / height
-    val right = (midPoint.x + halfWidth) / width
-    val bottom = (midPoint.y + halfWidth + yOffset) / height
+    val left: Float
+    val top: Float
+    val right: Float
+    val bottom: Float
+
+    if (region == FaceRegion.EYES) {
+      val halfBandWidth = eyesDistance * EYE_BAND_WIDTH_FACTOR * eyeBandScale / 2f
+      val halfBandHeight = eyesDistance * EYE_BAND_HEIGHT_FACTOR * eyeBandScale / 2f
+
+      left = (midPoint.x - halfBandWidth) / width
+      top = (midPoint.y - halfBandHeight) / height
+      right = (midPoint.x + halfBandWidth) / width
+      bottom = (midPoint.y + halfBandHeight) / height
+    } else {
+      val halfWidth = eyesDistance * 1.4f
+      val yOffset = eyesDistance * 0.4f
+
+      left = (midPoint.x - halfWidth) / width
+      top = (midPoint.y - halfWidth + yOffset) / height
+      right = (midPoint.x + halfWidth) / width
+      bottom = (midPoint.y + halfWidth + yOffset) / height
+    }
 
     val clampedLeft = left.coerceIn(0f, 1f)
     val clampedTop = top.coerceIn(0f, 1f)
@@ -117,7 +223,11 @@ class TeralFaceDetectorModule : Module() {
       "y" to clampedTop,
       "width" to (right.coerceIn(0f, 1f) - clampedLeft).coerceAtLeast(0f),
       "height" to (bottom.coerceIn(0f, 1f) - clampedTop).coerceAtLeast(0f),
-      "confidence" to face.confidence()
+      "confidence" to face.confidence(),
+      "region" to region.value,
+      // La API de deteccion de Android no reporta la pose de la cara, asi que la
+      // banda va siempre horizontal. En iOS, donde hay landmarks, si se inclina.
+      "angle" to 0f
     )
   }
 }
@@ -127,3 +237,6 @@ internal class MissingContextException :
 
 internal class FaceDetectionFailedException(reason: String) :
   CodedException("Fallo la deteccion de caras: $reason")
+
+internal class TattooDetectionFailedException(reason: String) :
+  CodedException("Fallo la deteccion de tatuajes: $reason")

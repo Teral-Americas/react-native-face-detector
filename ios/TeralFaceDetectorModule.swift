@@ -20,6 +20,56 @@ public final class TeralFaceDetectorModule: Module {
     AsyncFunction("detectFaces") { (uri: String, options: FaceDetectionOptions?) -> [String: Any] in
       return try self.detectFaces(uri: uri, options: options ?? FaceDetectionOptions())
     }
+
+    AsyncFunction("detectTattoos") { (uri: String, options: TattooDetectionOptions?) -> [String: Any] in
+      return try self.detectTattoos(uri: uri, options: options ?? TattooDetectionOptions())
+    }
+
+    Function("isTattooDetectionAvailable") {
+      return (try? self.sharedTattooDetector()) != nil
+    }
+  }
+
+  // MARK: - Tatuajes
+
+  /// El modelo tarda en cargarse; se reutiliza entre llamadas.
+  private var tattooDetector: TattooDetector?
+
+  private func sharedTattooDetector() throws -> TattooDetector {
+    if let existing = tattooDetector {
+      return existing
+    }
+    let created = try TattooDetector()
+    tattooDetector = created
+    return created
+  }
+
+  private func detectTattoos(uri: String, options: TattooDetectionOptions) throws -> [String: Any] {
+    let image = try loadImage(uri: uri)
+    let detector = try sharedTattooDetector()
+
+    let detections = try detector.detect(
+      image: image,
+      minConfidence: options.minConfidence,
+      iouThreshold: options.iouThreshold
+    )
+
+    return [
+      "imageWidth": Double(image.size.width * image.scale),
+      "imageHeight": Double(image.size.height * image.scale),
+      "tattoos": detections.map { detection in
+        let clamped = self.clampToUnitSquare(
+          CGRect(x: detection.x, y: detection.y, width: detection.width, height: detection.height)
+        )
+        return [
+          "x": Double(clamped.origin.x),
+          "y": Double(clamped.origin.y),
+          "width": Double(clamped.width),
+          "height": Double(clamped.height),
+          "confidence": detection.confidence
+        ]
+      }
+    ]
   }
 
   // MARK: - Deteccion
@@ -38,7 +88,9 @@ public final class TeralFaceDetectorModule: Module {
       throw FaceDetectionError.imageRenderFailed(uri)
     }
 
-    let request = VNDetectFaceRectanglesRequest()
+    // Landmarks en vez de solo rectangulos: la misma pasada da la caja de la
+    // cara y los puntos de los ojos, asi que la banda ocular no cuesta nada.
+    let request = VNDetectFaceLandmarksRequest()
     let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up, options: [:])
 
     do {
@@ -50,10 +102,24 @@ public final class TeralFaceDetectorModule: Module {
     let observations = request.results ?? []
     let faces = observations
       .filter { Double($0.confidence) >= options.minConfidence }
-      .map { observation -> [String: Any] in
+      .compactMap { observation -> [String: Any]? in
         // Vision usa origen abajo-izquierda; la app dibuja con origen arriba-izquierda.
-        var rect = observation.boundingBox
-        rect.origin.y = 1 - rect.origin.y - rect.height
+        var faceRect = observation.boundingBox
+        faceRect.origin.y = 1 - faceRect.origin.y - faceRect.height
+
+        var rect = faceRect
+        var angle: CGFloat = 0
+
+        if options.region == .eyes {
+          // Sin landmarks no hay banda que dibujar, y devolver la cara entera en
+          // su lugar taparia mucho mas de lo que se pidio.
+          guard let band = EyeBand.from(observation: observation, scale: CGFloat(options.eyeBandScale)) else {
+            return nil
+          }
+          rect = band.rect
+          angle = band.angle
+        }
+
         let clamped = clampToUnitSquare(rect)
 
         return [
@@ -61,7 +127,9 @@ public final class TeralFaceDetectorModule: Module {
           "y": Double(clamped.origin.y),
           "width": Double(clamped.width),
           "height": Double(clamped.height),
-          "confidence": Double(observation.confidence)
+          "confidence": Double(observation.confidence),
+          "region": options.region.rawValue,
+          "angle": Double(angle)
         ]
       }
 

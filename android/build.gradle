@@ -2,7 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 group = 'ai.teral.facedetector'
-version = '0.1.0'
+version = '0.2.0'
 
 def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
 apply from: expoModulesCorePlugin
@@ -21,6 +21,12 @@ android {
     minSdk safeExtGet("minSdkVersion", 24)
   }
 
+  androidResources {
+    // El .tflite ya viene comprimido; volver a comprimirlo impide mapearlo en
+    // memoria y obliga a copiarlo entero al arrancar.
+    noCompress += "tflite"
+  }
+
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_17
     targetCompatibility JavaVersion.VERSION_17
@@ -33,4 +39,7 @@ android {
 
 dependencies {
   implementation "androidx.exifinterface:exifinterface:1.3.7"
+  // Motor de inferencia para el modelo de tatuajes. LiteRT es el sucesor de
+  // TensorFlow Lite; pesa entre 2 y 4 MB segun ABIs.
+  implementation "com.google.ai.edge.litert:litert:1.4.0"
 }
