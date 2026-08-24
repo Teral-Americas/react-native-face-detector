@@ -21,7 +21,9 @@ npx pod-install
 Es código nativo: hay que recompilar (`npx expo run:ios` / `npx expo run:android`).
 No funciona en Expo Go.
 
-## Caras
+## API
+
+### `detectFaces(uri, options?): Promise<FaceDetectionResult>`
 
 ```ts
 import { detectFaces, isFaceDetectionAvailable } from '@teral-americas/react-native-face-detector';
@@ -34,7 +36,7 @@ const { imageWidth, imageHeight, faces } = await detectFaces(uri, {
 // faces: [{ x, y, width, height, confidence, region, angle }] — normalizado 0..1
 ```
 
-### `region: 'eyes'`
+#### `region: 'eyes'`
 
 Devuelve solo la banda de los ojos: la convención de las publicaciones médicas,
 útil cuando la lesión está en la cara. **No anonimiza** — mandíbula, nariz, boca
@@ -47,12 +49,16 @@ porque su API no reporta la pose. El rectángulo devuelto está alineado a los e
 y **envuelve** la banda inclinada, de modo que ignorar `angle` no destapa nada.
 Ajusta su tamaño con `eyeBandScale`.
 
-## Tatuajes
+### `detectTattoos(uri, options?): Promise<TattooDetectionResult>`
 
 ```ts
 import { detectTattoos, isTattooDetectionAvailable } from '@teral-americas/react-native-face-detector';
 
-const { tattoos } = await detectTattoos(uri, { minConfidence: 0.05 });
+const { tattoos } = await detectTattoos(uri, {
+  minConfidence: 0.05,   // umbral de confianza
+  iouThreshold: 0.45,    // solape a partir del cual dos cajas son la misma
+});
+// tattoos: [{ x, y, width, height, confidence }] — normalizado 0..1
 ```
 
 A diferencia de las caras, esto no lo resuelve ninguna API del sistema: es un
@@ -69,6 +75,12 @@ no debería prometer que los ha tapado todos.
 
 El umbral por defecto es bajo a propósito: difuminar de más cuesta píxeles,
 dejarse un tatuaje cuesta la privacidad de un paciente.
+
+### `isFaceDetectionAvailable` · `isTattooDetectionAvailable`
+
+`false` cuando el build no trae lo necesario — por ejemplo en Expo Go, o en un
+binario anterior a instalar la librería. Úsalos para esconder la opción de
+censurado automático en vez de dejar que falle al pulsarla.
 
 ## Detalles que importan
 
