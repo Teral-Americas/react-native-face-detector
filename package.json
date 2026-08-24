@@ -1,5 +1,5 @@
 {
-  "name": "@teral/react-native-face-detector",
+  "name": "@teral-americas/react-native-face-detector",
   "version": "0.2.0",
   "description": "Deteccion de caras y tatuajes on-device para React Native: devuelve coordenadas normalizadas y no toca la imagen.",
   "main": "build/index.js",
@@ -17,13 +17,16 @@
   "keywords": [
     "react-native",
     "expo",
+    "expo-module",
     "face-detection",
     "tattoo-detection",
     "vision",
     "coreml",
     "tflite",
     "privacy",
-    "blur"
+    "blur",
+    "ios",
+    "android"
   ],
   "repository": {
     "type": "git",
@@ -40,12 +43,13 @@
   },
   "files": [
     "build",
-    "android",
+    "android/build.gradle",
+    "android/src",
     "ios",
     "expo-module.config.json",
-    "!android/build",
-    "!android/.gradle",
-    "!**/__tests__"
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "peerDependencies": {
     "expo": "*",
@@ -53,7 +57,9 @@
     "react-native": "*"
   },
   "devDependencies": {
+    "@types/react": "^19.0.0",
     "expo-module-scripts": "^5.0.0",
-    "expo-modules-core": "^3.0.0"
+    "expo-modules-core": "*",
+    "react": "^19.0.0"
   }
 }

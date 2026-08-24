@@ -45,7 +45,7 @@ export async function detectFaces(
 ): Promise<FaceDetectionResult> {
   if (!TeralFaceDetector) {
     throw new Error(
-      "[@teral/react-native-face-detector] el módulo nativo no está disponible. " +
+      "[@teral-americas/react-native-face-detector] el módulo nativo no está disponible. " +
         "Hace falta recompilar la app (npx expo run:ios / run:android); no funciona en Expo Go.",
     );
   }
@@ -77,7 +77,7 @@ export async function detectTattoos(
 ): Promise<TattooDetectionResult> {
   if (!TeralFaceDetector) {
     throw new Error(
-      "[@teral/react-native-face-detector] el módulo nativo no está disponible. " +
+      "[@teral-americas/react-native-face-detector] el módulo nativo no está disponible. " +
         "Hace falta recompilar la app (npx expo run:ios); no funciona en Expo Go.",
     );
   }

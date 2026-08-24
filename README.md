@@ -1,4 +1,4 @@
-# @teral/react-native-face-detector
+# @teral-americas/react-native-face-detector
 
 Detección **on-device** de caras y tatuajes para React Native / Expo. Devuelve
 coordenadas y **no toca la imagen**: el censurado lo dibuja tu app, con lo que el
@@ -14,7 +14,7 @@ Nada de la imagen sale del dispositivo: sin red, sin Google Play Services.
 ## Instalación
 
 ```bash
-npm install @teral/react-native-face-detector
+npm install @teral-americas/react-native-face-detector
 npx pod-install
 ```
 
@@ -24,7 +24,7 @@ No funciona en Expo Go.
 ## Caras
 
 ```ts
-import { detectFaces, isFaceDetectionAvailable } from '@teral/react-native-face-detector';
+import { detectFaces, isFaceDetectionAvailable } from '@teral-americas/react-native-face-detector';
 
 const { imageWidth, imageHeight, faces } = await detectFaces(uri, {
   region: 'face',        // o 'eyes'
@@ -50,7 +50,7 @@ Ajusta su tamaño con `eyeBandScale`.
 ## Tatuajes
 
 ```ts
-import { detectTattoos, isTattooDetectionAvailable } from '@teral/react-native-face-detector';
+import { detectTattoos, isTattooDetectionAvailable } from '@teral-americas/react-native-face-detector';
 
 const { tattoos } = await detectTattoos(uri, { minConfidence: 0.05 });
 ```
