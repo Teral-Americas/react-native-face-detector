@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- iOS: `detectFaces()` pide solo los rectangulos salvo que se le pida
+  `region: 'eyes'`. Los landmarks solo hacen falta para la banda ocular, y en
+  iOS 26 salen caros: Vision monta su `VNFaceBBoxAligner` en cuanto encuentra
+  una cara y le pide a Metal una textura de tamaño -1, con lo que la asercion de
+  Metal mata el proceso — `SIGABRT`, sin excepcion que atrapar y sin nada que el
+  lado de JavaScript pueda hacer. Android no estaba afectado.
+
 ## 0.2.0
 
 - Nuevo modo `region: 'eyes'`: censura solo la banda de los ojos en lugar de la

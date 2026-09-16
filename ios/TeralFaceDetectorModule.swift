@@ -88,18 +88,23 @@ public final class TeralFaceDetectorModule: Module {
       throw FaceDetectionError.imageRenderFailed(uri)
     }
 
-    // Landmarks en vez de solo rectangulos: la misma pasada da la caja de la
-    // cara y los puntos de los ojos, asi que la banda ocular no cuesta nada.
-    let request = VNDetectFaceLandmarksRequest()
-    let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up, options: [:])
+    // Los landmarks solo hacen falta para la banda ocular, y salen caros de mas:
+    // en iOS 26 Vision monta su `VNFaceBBoxAligner` en cuanto encuentra una cara
+    // y le pide a Metal una textura de tamaño -1, con lo que la asercion de
+    // Metal mata el proceso con SIGABRT y sin excepcion que atrapar
+    // (`MTLTextureDescriptor has width 18446744073709551615`). Para la cara
+    // entera basta con los rectangulos, que no pasan por el alineador.
+    let observations: [VNFaceObservation]
 
-    do {
-      try handler.perform([request])
-    } catch {
-      throw FaceDetectionError.detectionFailed(error.localizedDescription)
+    if options.region == .eyes {
+      let request = VNDetectFaceLandmarksRequest()
+      try perform(request, on: cgImage)
+      observations = request.results ?? []
+    } else {
+      let request = VNDetectFaceRectanglesRequest()
+      try perform(request, on: cgImage)
+      observations = request.results ?? []
     }
-
-    let observations = request.results ?? []
     let faces = observations
       .filter { Double($0.confidence) >= options.minConfidence }
       .compactMap { observation -> [String: Any]? in
@@ -138,6 +143,17 @@ public final class TeralFaceDetectorModule: Module {
       "imageHeight": Double(imageHeight),
       "faces": faces
     ]
+  }
+
+  /// Lanza la peticion de Vision traduciendo su error al del modulo.
+  private func perform(_ request: VNRequest, on cgImage: CGImage) throws {
+    let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up, options: [:])
+
+    do {
+      try handler.perform([request])
+    } catch {
+      throw FaceDetectionError.detectionFailed(error.localizedDescription)
+    }
   }
 
   // MARK: - Carga de la imagen
